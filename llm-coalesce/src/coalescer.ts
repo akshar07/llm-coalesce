@@ -20,7 +20,7 @@ export interface CoalescerOptions {
    * on the same page. */
   streamAdapter?: StreamAdapter;
   /**
-   * Turns a non-string request into a cache key. Defaults to a stable hash
+   * Turns a non-string request into a cache key. Defaults to a canonical serialization
    * of the whole object (order-independent, so `{a,b}` and `{b,a}` collide
    * on purpose — but `{maxTokens:500}` and `{maxTokens:800}` do NOT, by
    * design; see src/key.ts).
@@ -54,7 +54,7 @@ function resolveKey(
   request: Request,
   keyFn: (request: Record<string, unknown>) => string,
 ): string {
-  return typeof request === "string" ? request : keyFn(request);
+  return typeof request === "string" ? `string:${request}` : `object:${keyFn(request)}`;
 }
 
 /**

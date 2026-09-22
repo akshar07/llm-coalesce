@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "express": "^4.19.2",
-    "llm-coalesce": "file:./vendor-packages/llm-coalesce-0.1.0.tgz"
+    "llm-coalesce": "file:vendor-packages/llm-coalesce-0.1.0.tgz"
   },
   "optionalDependencies": {
     "@anthropic-ai/sdk": "^0.27.0"

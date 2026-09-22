@@ -77,3 +77,13 @@ describe("Coalescer.run", () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 });
+
+
+it("does not merge colliding prompts or literal string keys with object keys", async () => {
+  const coalescer = createCoalescer();
+  const requests = [{ prompt: "Aa" }, { prompt: "B@" }, '{"prompt":"Aa"}'];
+  const results = await Promise.all(requests.map((request, i) =>
+    coalescer.run(request, async () => i),
+  ));
+  expect(results).toEqual([0, 1, 2]);
+});

@@ -1,41 +1,51 @@
 /**
- * Deterministic JSON stringification: object keys are sorted, so two
- * requests with the same fields in a different order hash identically.
- * Not a general-purpose serializer — functions, symbols, and cycles are
- * out of scope for a cache key.
+ * Canonical serialization for JSON-shaped request keys. Object field order
+ * does not matter; array order does. Unsupported values are rejected rather
+ * than silently collapsing distinct requests onto the same key.
  */
 export function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(",")}]`;
-  }
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  const body = keys
-    .map((k) => `${JSON.stringify(k)}:${stableStringify(record[k])}`)
-    .join(",");
-  return `{${body}}`;
+  const ancestors = new Set<object>();
+  const encode = (item: unknown): string => {
+    if (item === null) return "null";
+    if (typeof item === "string" || typeof item === "boolean") {
+      return JSON.stringify(item);
+    }
+    if (typeof item === "number" && Number.isFinite(item)) {
+      return Object.is(item, -0) ? "-0" : JSON.stringify(item);
+    }
+    if (typeof item !== "object") {
+      throw new TypeError("Request keys require JSON-shaped values (finite numbers, strings, booleans, null, arrays, and plain objects)");
+    }
+    if (ancestors.has(item)) throw new TypeError("Request keys cannot contain cycles");
+    if (!Array.isArray(item) && Object.getPrototypeOf(item) !== Object.prototype && Object.getPrototypeOf(item) !== null) {
+      throw new TypeError("Request keys require plain objects; convert dates and other instances explicitly");
+    }
+    if (Object.getOwnPropertySymbols(item).length) {
+      throw new TypeError("Request keys cannot contain symbol properties");
+    }
+    ancestors.add(item);
+    try {
+      if (Array.isArray(item)) {
+        if (Object.keys(item).length !== item.length) {
+          throw new TypeError("Request keys cannot contain sparse arrays or extra array properties");
+        }
+        return `[${Array.from(item, encode).join(",")}]`;
+      }
+      const record = item as Record<string, unknown>;
+      return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${encode(record[key])}`).join(",")}}`;
+    } finally {
+      ancestors.delete(item);
+    }
+  };
+  return encode(value);
 }
 
 /**
- * Fast, deterministic, non-cryptographic hash (djb2 variant) of a request
- * object into a cache key. This is a dedup key, not a security boundary —
- * collisions are astronomically unlikely for request-shaped objects but
- * are not adversarially hardened against.
- *
- * By default the key includes every field you pass in — two requests that
- * differ only in `maxTokens` will NOT coalesce. That's deliberate: silently
- * merging requests with different parameters is a correctness bug waiting
- * to happen. Pass a custom `keyFn` to `createCoalescer` if you want a
- * looser, intent-based key instead.
+ * Historical API name retained for compatibility. Returns the full canonical
+ * serialization, not a fixed-width hash: distinct supported requests must
+ * never share a key merely because their hashes collide. Output is not a
+ * digest and must not be used to hide sensitive request contents.
  */
 export function stableHash(value: unknown): string {
-  const str = stableStringify(value);
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
-  }
-  return hash.toString(36);
+  return stableStringify(value);
 }
