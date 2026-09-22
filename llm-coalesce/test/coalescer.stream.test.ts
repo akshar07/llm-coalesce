@@ -1,0 +1,96 @@
+import { describe, expect, it, vi } from "vitest";
+import { createCoalescer } from "../src/coalescer.js";
+import { ControllableSource, drain, sleep } from "./test-utils.js";
+
+/** A thunk factory that counts how many times it was invoked and how many
+ * times the AsyncIterable it returns was actually iterated — the two
+ * differ if a caller creates a source but nothing ever consumes it. */
+function makeThunk() {
+  const sources: ControllableSource<string>[] = [];
+  const thunk = vi.fn(() => {
+    const source = new ControllableSource<string>();
+    sources.push(source);
+    return source;
+  });
+  return { thunk, sources };
+}
+
+describe("Coalescer.stream — the core scenario this package exists for", () => {
+  it("three independently-triggered callers for the same completion share one upstream call", async () => {
+    const coalescer = createCoalescer();
+    const { thunk, sources } = makeThunk();
+    const request = { model: "x", messages: ["explain clause 7"] };
+
+    // Widget A subscribes first.
+    const subA = await coalescer.stream(request, thunk);
+    sources[0]!.push("The ");
+    await sleep(0);
+
+    // Widget B subscribes 40ms "later" — same request.
+    const subB = await coalescer.stream(request, thunk);
+
+    sources[0]!.push("liability ");
+    sources[0]!.push("clause is uncapped.");
+    sources[0]!.finish();
+
+    // Widget C subscribes after the stream has already finished.
+    const subC = await coalescer.stream(request, thunk);
+
+    const [a, b, c] = await Promise.all([drain(subA), drain(subB), drain(subC)]);
+
+    expect(thunk).toHaveBeenCalledTimes(1);
+    const full = ["The ", "liability ", "clause is uncapped."];
+    expect(a).toEqual(full);
+    expect(b).toEqual(full); // late joiner: buffered replay then live
+    expect(c).toEqual(full); // joined after completion: full replay
+  });
+
+  it("does not coalesce requests with different keys", async () => {
+    const coalescer = createCoalescer();
+    const { thunk, sources } = makeThunk();
+
+    const subA = await coalescer.stream({ clauseId: 7 }, thunk);
+    const subB = await coalescer.stream({ clauseId: 8 }, thunk);
+    sources[0]!.finish();
+    sources[1]!.finish();
+    await Promise.all([drain(subA), drain(subB)]);
+
+    expect(thunk).toHaveBeenCalledTimes(2);
+  });
+
+  it("starts a fresh upstream call for the same key once the previous stream has settled", async () => {
+    const coalescer = createCoalescer();
+    const { thunk, sources } = makeThunk();
+
+    const first = await coalescer.stream("key-1", thunk);
+    sources[0]!.push("a");
+    sources[0]!.finish();
+    await drain(first);
+
+    const second = await coalescer.stream("key-1", thunk);
+    sources[1]!.push("b");
+    sources[1]!.finish();
+    expect(await drain(second)).toEqual(["b"]);
+
+    expect(thunk).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels the upstream source when every subscriber unsubscribes before completion", async () => {
+    const coalescer = createCoalescer();
+    const { thunk, sources } = makeThunk();
+
+    const sub = await coalescer.stream("key-1", thunk);
+    sources[0]!.push("a");
+    await sub.next();
+    await sub.return?.();
+
+    expect(sources[0]!.wasCancelled()).toBe(true);
+
+    // key was released on abort, so the next call re-invokes the thunk
+    const again = await coalescer.stream("key-1", thunk);
+    sources[1]!.push("fresh");
+    sources[1]!.finish();
+    expect(await drain(again)).toEqual(["fresh"]);
+    expect(thunk).toHaveBeenCalledTimes(2);
+  });
+});

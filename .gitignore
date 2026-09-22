@@ -1,0 +1,37 @@
+# Dependencies and generated builds (all packages)
+node_modules/
+dist/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.cache/
+playwright-report/
+test-results/
+
+# Secrets and local environment; retain safe templates
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.pem
+*.key
+
+# Logs and machine-local files
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.claude/
+.codex/
+*.swp
+*.swo
+
+# Generated npm archives; the demo's dependency must remain versioned
+*.tgz
+!llm-coalesce-demo/vendor-packages/llm-coalesce-*.tgz
+
+# Generated promotional media and working files
+/brag-output/

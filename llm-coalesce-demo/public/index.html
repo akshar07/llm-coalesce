@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Call, Many Widgets — client-side coalescing over a real API</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow"><span class="dot"></span>llm-coalesce · step 1 demo<span class="provider-badge" id="providerBadge">checking provider…</span></div>
+    <h1>One call, many widgets</h1>
+    <p class="tagline">Every widget below wants the same answer at the same moment. The Node server behind this page is deliberately dumb — it has no idea what coalescing is; every request it receives triggers a real provider call. The coalescing happens entirely in this page's JavaScript, imported from the real <code class="mono">llm-coalesce</code> npm package (not a copy of it): on the left, each widget calls this demo's own <code class="mono">createSSEStream()</code> helper on its own; on the right, widgets go through the package's <code class="mono">coalescer.stream()</code>, and only the first one actually reaches the server. <code class="mono">llm-coalesce</code> itself never parses SSE or talks to any provider — it only ever sees a plain async stream, supplied by the caller. Watch the provider-call counters — they're the server's own count of requests it received.</p>
+  </header>
+
+  <div class="controls">
+    <div class="control-group">
+      <span class="control-label">WIDGETS</span>
+      <div class="segmented" id="widgetCountControl">
+        <button data-count="2">2</button>
+        <button data-count="3" class="active">3</button>
+        <button data-count="4">4</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label class="toggle"><input type="checkbox" id="staggerToggle"> Stagger mount times (join mid-stream)</label>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost" id="resetBtn">Reset</button>
+    <button class="btn btn-primary" id="runBtn">▶ Run demo</button>
+  </div>
+
+  <div class="stage">
+    <section class="system system--naive">
+      <div class="system-head">
+        <h2>Without coalescing</h2>
+        <span class="system-sub">each widget calls fetch() on its own</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-tile"><div class="num" id="naiveCalls">0</div><div class="label">requests the server received</div></div>
+        <div class="stat-tile"><div class="num" id="naiveTokens">0</div><div class="label">tokens generated</div></div>
+      </div>
+      <div class="widgets" id="naiveWidgets"></div>
+      <div class="log" id="naiveLog"><div class="log-empty">Press "Run demo" to start.</div></div>
+    </section>
+
+    <section class="system system--coalesced">
+      <div class="system-head">
+        <h2>With llm-coalesce</h2>
+        <span class="system-sub">widgets share one client-side registry entry</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-tile"><div class="num" id="coalescedCalls">0</div><div class="label">requests the server received</div></div>
+        <div class="stat-tile"><div class="num" id="coalescedTokens">0</div><div class="label">tokens generated</div></div>
+      </div>
+      <div class="widgets" id="coalescedWidgets"></div>
+      <div class="log" id="coalescedLog"><div class="log-empty">Press "Run demo" to start.</div></div>
+    </section>
+  </div>
+
+  <div class="controls" id="lateRow" style="display:none; margin-top:16px;">
+    <span class="control-label">AFTER THE STREAM FINISHES</span>
+    <div class="spacer"></div>
+    <button class="btn btn-amber" id="lateBtn">+ Mount one more widget now</button>
+  </div>
+
+  <footer class="note">
+    Turn on <strong>stagger</strong> to mount widgets 0ms / 600ms / 1300ms apart — on the right, a widget joining mid-stream replays the buffered tokens instantly from the browser's own buffer, then continues live, without a second request ever reaching the server. The "mount one more widget after the stream finishes" button is left in deliberately: llm-coalesce's registry only shares requests that overlap in time, so a widget arriving after completion makes a fresh call on <em>both</em> sides — that's a scoped-out feature (a post-completion TTL cache), not a bug; see the package's own "Non-goals" and ADR 0003. Set <code>ANTHROPIC_API_KEY</code> in the server's environment to swap the mock for a real streaming completion — see the README. That choice is independent of everything above: coalescing decides <em>how many</em> requests get sent, not what answers them.
+    <br><br>
+    Everything above runs in <em>one</em> script, one module graph — the coalescing was never in question across a bundle boundary. See <a href="/microfrontends">the microfrontends demo →</a> for the harder case: three genuinely separate module graphs, coordinated only through <code>windowAdapter()</code>.
+  </footer>
+
+</div>
+
+<!--
+  Maps the bare "llm-coalesce" specifier to the actual installed
+  package (served statically from node_modules/llm-coalesce/dist —
+  see src/server.js). Must appear before the module script that uses it.
+  No bundler in this page at all: this is the real npm package's real
+  compiled output, loaded by the browser's native module resolver.
+  "./sse.js" needs no entry here — it's this demo's own file, served
+  directly from public/, and app.js imports it by relative path.
+-->
+<script type="importmap">
+{
+  "imports": {
+    "llm-coalesce": "/vendor/llm-coalesce/index.js"
+  }
+}
+</script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

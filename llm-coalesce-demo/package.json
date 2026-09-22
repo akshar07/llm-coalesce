@@ -1,0 +1,27 @@
+{
+  "name": "llm-coalesce-demo",
+  "version": "0.7.0",
+  "private": true,
+  "description": "Step 1 demo: client-side request coalescing via the installed, provider-agnostic llm-coalesce package, talking to a plain, coalescing-unaware Node streaming API.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "test:browser": "node browser-tests/microfrontends-check.mjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "llm-coalesce": "file:./vendor-packages/llm-coalesce-0.1.0.tgz"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.27.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  },
+  "license": "MIT"
+}

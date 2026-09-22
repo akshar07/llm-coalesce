@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Microfrontends, one page — llm-coalesce across independent bundles</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow"><span class="dot"></span>llm-coalesce · microfrontends demo</div>
+    <h1>Three microfrontends, one page, one call</h1>
+    <p class="tagline">
+      Widget A, B, and C below are three genuinely separate ES module
+      graphs — each one imports <code class="mono">llm-coalesce</code> from
+      its own <code class="mono">/vendor/mfe-*/llm-coalesce/</code> mount
+      (see <code class="mono">src/server.js</code>), so each gets its own
+      copy of every class and closure in the library, the same as three
+      independently built and independently deployed bundles would. On the
+      left, each one uses the library's default in-process registry — its
+      own private <code class="mono">Map</code>, invisible to the other
+      two. On the right, all three pass <code class="mono">windowAdapter()</code>,
+      which reaches through the one object all three module graphs
+      actually do share on a real page: <code class="mono">window</code>.
+      Same key, same moment, two different outcomes — watch the
+      server's own call counters.
+    </p>
+  </header>
+
+  <div class="controls">
+    <span class="control-label">3 MICROFRONTENDS, MOUNTED TOGETHER</span>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost" id="resetBtn">Reset</button>
+    <button class="btn btn-primary" id="runBtn">▶ Run demo</button>
+  </div>
+
+  <div class="stage">
+    <section class="system system--naive">
+      <div class="system-head">
+        <h2>Isolated — default adapter</h2>
+        <span class="system-sub">each microfrontend's own private registry</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-tile"><div class="num" id="isolatedCalls">0</div><div class="label">requests the server received</div></div>
+      </div>
+      <div class="widgets" id="isolatedWidgets"></div>
+      <div class="log" id="isolatedLog"><div class="log-empty">Press "Run demo" to start.</div></div>
+    </section>
+
+    <section class="system system--coalesced">
+      <div class="system-head">
+        <h2>Shared — windowAdapter()</h2>
+        <span class="system-sub">all three coordinate through <code class="mono">window</code></span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-tile"><div class="num" id="sharedCalls">0</div><div class="label">requests the server received</div></div>
+      </div>
+      <div class="widgets" id="sharedWidgets"></div>
+      <div class="log" id="sharedLog"><div class="log-empty">Press "Run demo" to start.</div></div>
+    </section>
+  </div>
+
+  <footer class="note">
+    This isn't three copies of one script tag with different labels — each
+    of <code class="mono">mfe-a.js</code>, <code class="mono">mfe-b.js</code>,
+    and <code class="mono">mfe-c.js</code> imports
+    <code class="mono">llm-coalesce</code> from a distinct URL
+    (<code class="mono">/vendor/mfe-a/llm-coalesce/index.js</code>,
+    <code class="mono">/vendor/mfe-b/…</code>,
+    <code class="mono">/vendor/mfe-c/…</code>), all three served from the
+    identical <code class="mono">node_modules/llm-coalesce/dist</code> on
+    disk. Browsers key ES module identity on the resolved URL, not file
+    content, so those three imports — and everything each one transitively
+    imports — are evaluated as three wholly separate module graphs. See
+    <code class="mono">TUTORIAL-microfrontends-live-demo.md</code> for how
+    this was verified in a real browser, not just argued from the source.
+    <br><br>
+    <a href="/">← back to the single-bundle demo</a>
+  </footer>
+
+</div>
+
+<script type="module" src="/microfrontends.js"></script>
+</body>
+</html>
