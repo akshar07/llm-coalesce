@@ -44,12 +44,14 @@ describe("windowAdapter", () => {
     const fakeWindow: Record<string, unknown> = {};
     const adapter = windowAdapter(fakeWindow as never);
 
-    adapter.register("stale", { protocolVersion: "0", subscribe: () => { throw new Error("n/a"); } });
-    adapter.release("stale");
+    const stale = { protocolVersion: "0", subscribe: () => { throw new Error("n/a"); } };
+    adapter.register("stale", stale);
+    adapter.release("stale", stale);
 
     // A same-version release, by contrast, does clear the entry.
-    adapter.register("current", { protocolVersion: PROTOCOL_VERSION, subscribe: () => { throw new Error("n/a"); } });
-    adapter.release("current");
+    const current = { protocolVersion: PROTOCOL_VERSION, subscribe: () => { throw new Error("n/a"); } };
+    adapter.register("current", current);
+    adapter.release("current", current);
     expect(adapter.acquire("current")).toBeUndefined();
   });
 

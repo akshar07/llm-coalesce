@@ -47,3 +47,17 @@ Safe by construction across version skew, at the cost of not coalescing
 across a skew when it happens. That's the correct trade for a cache: a
 missed coalesce costs one duplicate request; a wrong one risks corrupted
 shared state.
+
+## Ownership-checked cleanup (protocol 2)
+
+`StreamAdapter.release(key, expectedEntry)` must delete only when the stored
+entry is the same object as `expectedEntry`. The comparison and deletion must
+happen synchronously inside the adapter. Cancellation can release a key before
+the source's pending read finishes; its later settlement must not remove a
+replacement stream registered under that key.
+
+The coalescer passes its entry to both abort and settlement cleanup. Both
+built-in adapters enforce object identity. Custom adapters must implement this
+contract as well. Protocol 2 prevents protocol 1's version-checked but
+ownership-unaware cleanup from deleting a protocol 2 entry. Mixed versions do
+not coalesce; upgrade cooperating bundles together.

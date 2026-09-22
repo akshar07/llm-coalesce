@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { memoryAdapter, windowAdapter } from "../src/adapters.js";
 import { createCoalescer } from "../src/coalescer.js";
 import { ControllableSource, drain, sleep } from "./test-utils.js";
 
@@ -107,4 +108,46 @@ it("keeps previously colliding prompts on separate live streams", async () => {
   a.finish();
   b.finish();
   expect(await Promise.all([drain(first), drain(second)])).toEqual([["first"], ["second"]]);
+});
+
+
+describe.each(["memory", "window"] as const)("%s registry ownership", (kind) => {
+  it.each(["completion", "error"] as const)("preserves a replacement after cancelled source's delayed %s", async (settlement) => {
+    const host = {};
+    const adapter = kind === "memory" ? memoryAdapter() : windowAdapter(host);
+    const firstClient = createCoalescer({ streamAdapter: adapter });
+    const nextClient = createCoalescer({
+      streamAdapter: kind === "memory" ? adapter : windowAdapter(host),
+    });
+    const oldSource = new ControllableSource<string>();
+    const first = await firstClient.stream("shared", () => oldSource);
+    oldSource.push("old");
+    await first.next();
+    await first.return?.();
+
+    const replacement = new ControllableSource<string>();
+    const replacementFactory = vi.fn(() => replacement);
+    const second = await nextClient.stream("shared", replacementFactory);
+
+    // Cancellation requested return(), but the old pending next() settles later.
+    if (settlement === "completion") oldSource.finish();
+    else oldSource.fail(new Error("late failure"));
+    await sleep(0);
+
+    const unexpectedFactory = vi.fn(() => new ControllableSource<string>());
+    const third = await firstClient.stream("shared", unexpectedFactory);
+    expect(unexpectedFactory).not.toHaveBeenCalled();
+    expect(replacementFactory).toHaveBeenCalledTimes(1);
+    replacement.push("new");
+    replacement.finish();
+    expect(await Promise.all([drain(second), drain(third)])).toEqual([["new"], ["new"]]);
+
+    // The replacement's own completion still releases the key.
+    const freshSource = new ControllableSource<string>();
+    const freshFactory = vi.fn(() => freshSource);
+    const fresh = await nextClient.stream("shared", freshFactory);
+    expect(freshFactory).toHaveBeenCalledTimes(1);
+    freshSource.finish();
+    await drain(fresh);
+  });
 });

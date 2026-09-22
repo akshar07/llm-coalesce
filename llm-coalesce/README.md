@@ -212,3 +212,10 @@ cycles, and class instances are rejected; convert these explicitly first.
 Key strings contain request contents and should not be treated as redacted.
 All bundles participating in shared coalescing should use the updated key
 format; older bundles will not reliably coalesce with updated ones.
+
+### Stream adapter cleanup compatibility
+
+Custom stream adapters must implement `release(key, expectedEntry)` and remove
+an entry only if it is still exactly `expectedEntry`. This prevents delayed
+cleanup of a cancelled stream from deleting its replacement. The shared
+registry protocol is now version 2; update cooperating bundles together.

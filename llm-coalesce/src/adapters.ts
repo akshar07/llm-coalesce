@@ -39,7 +39,8 @@ export interface StreamRegistryEntry {
 export interface StreamAdapter {
   acquire(key: string): StreamRegistryEntry | undefined;
   register(key: string, entry: StreamRegistryEntry): void;
-  release(key: string): void;
+  /** Remove only the entry owned by the caller; stale cleanup must be a no-op. */
+  release(key: string, expectedEntry: StreamRegistryEntry): void;
 }
 
 /** In-process registry. Default for Node/SSR/tests, and for browser use
@@ -51,8 +52,8 @@ export function memoryAdapter(): StreamAdapter {
     register: (key, entry) => {
       map.set(key, entry);
     },
-    release: (key) => {
-      map.delete(key);
+    release: (key, expectedEntry) => {
+      if (map.get(key) === expectedEntry) map.delete(key);
     },
   };
 }
@@ -104,9 +105,9 @@ export function windowAdapter(
     register: (key, entry) => {
       map.set(key, entry);
     },
-    release: (key) => {
+    release: (key, expectedEntry) => {
       const entry = map.get(key);
-      if (entry && entry.protocolVersion === PROTOCOL_VERSION) {
+      if (entry && entry === expectedEntry && entry.protocolVersion === PROTOCOL_VERSION) {
         map.delete(key);
       }
     },

@@ -9,4 +9,6 @@
  *
  * Bump this only when the RegistryEntry shape changes in a breaking way.
  */
-export const PROTOCOL_VERSION = "1";
+// Version 2 requires ownership-checked release. Version 1 cleanup must not
+// recognize and delete entries created under the new lifecycle contract.
+export const PROTOCOL_VERSION = "2";
