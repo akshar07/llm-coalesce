@@ -125,7 +125,7 @@ a raw `fetch` SSE response.
     `Map`; pass `windowAdapter()` to coordinate across independently
     bundled widgets sharing a page.
   - `keyFn?` — turns a non-string request into a cache key. Defaults to a
-    stable, order-independent hash of the whole object — two requests that
+    canonical, order-independent serialization of the whole JSON-shaped object — two requests that
     differ only in a parameter (e.g. `maxTokens`) do **not** coalesce by
     default; see `docs/adr/0002-exact-key-default.md`.
 - **`coalescer.run(request, fn)`** — coalesce a plain `Promise`-returning
@@ -135,7 +135,7 @@ a raw `fetch` SSE response.
 - **`coalescer.stream(request, fn)`** — coalesce a streaming call. `fn` is
   invoked once per key; every other caller attaches to the same
   `MulticastStream` instead. `request` can be a plain string key or an
-  object (hashed via `keyFn`).
+  object (serialized via `keyFn`).
 - **`MulticastStream`**, **`memoryAdapter`**, **`windowAdapter`**,
   **`stableHash`** — the underlying primitives, exported for direct use or
   a custom adapter. See the source in `src/` — it's a few hundred lines
@@ -197,3 +197,18 @@ what's here today is correctness, not yet a measured number.
 ## License
 
 MIT
+
+### Request key compatibility
+
+`stableHash()` retains its historical name but now returns the complete
+canonical serialization instead of a 32-bit digest. Object key order is
+ignored; distinct supported values remain distinct. String keys and object
+keys use separate internal prefixes. Custom `keyFn` implementations remain
+responsible for their own collision behavior.
+
+Use JSON-shaped values: plain objects, dense arrays, strings, finite numbers,
+booleans, and null. Undefined, functions, symbols, bigint, non-finite numbers,
+cycles, and class instances are rejected; convert these explicitly first.
+Key strings contain request contents and should not be treated as redacted.
+All bundles participating in shared coalescing should use the updated key
+format; older bundles will not reliably coalesce with updated ones.

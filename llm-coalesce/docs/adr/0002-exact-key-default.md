@@ -10,7 +10,7 @@ what a human would call the same underlying question. It's tempting to
 normalize these into one cache key so they coalesce.
 
 ## Decision
-The default key (`stableHash`, in `src/key.ts`) hashes every field of the
+The default key (`stableHash`, in `src/key.ts`) canonically serializes every field of the
 request object, including generation parameters. Two requests coalesce only
 if they are identical once key order is normalized. Silently merging
 requests with different parameters — returning a 500-token answer to a

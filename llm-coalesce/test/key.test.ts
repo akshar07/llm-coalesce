@@ -31,3 +31,24 @@ describe("stableHash", () => {
     expect(a).toBe(b);
   });
 });
+
+
+describe("collision-safe keys", () => {
+  it("distinguishes requests that collided under the old 32-bit hash", () => {
+    expect(stableHash({ prompt: "Aa" })).not.toBe(stableHash({ prompt: "B@" }));
+  });
+
+  it.each([undefined, NaN, Infinity, 1n, () => 1, Symbol("key"), new Date(), new Map(), [, 1]])(
+    "rejects unsupported request values: %s", (value) => {
+      expect(() => stableHash({ value })).toThrow(TypeError);
+    },
+  );
+
+  it("rejects cycles but accepts repeated references", () => {
+    const cycle: Record<string, unknown> = {};
+    cycle.self = cycle;
+    expect(() => stableHash(cycle)).toThrow(/cycles/);
+    const shared = { a: 1 };
+    expect(stableHash({ x: shared, y: shared })).toBe(stableHash({ x: { a: 1 }, y: { a: 1 } }));
+  });
+});

@@ -94,3 +94,17 @@ describe("Coalescer.stream — the core scenario this package exists for", () =>
     expect(thunk).toHaveBeenCalledTimes(2);
   });
 });
+
+
+it("keeps previously colliding prompts on separate live streams", async () => {
+  const coalescer = createCoalescer();
+  const a = new ControllableSource<string>();
+  const b = new ControllableSource<string>();
+  const first = await coalescer.stream({ prompt: "Aa" }, () => a);
+  const second = await coalescer.stream({ prompt: "B@" }, () => b);
+  a.push("first");
+  b.push("second");
+  a.finish();
+  b.finish();
+  expect(await Promise.all([drain(first), drain(second)])).toEqual([["first"], ["second"]]);
+});
