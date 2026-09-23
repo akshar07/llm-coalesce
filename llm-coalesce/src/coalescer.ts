@@ -134,14 +134,15 @@ export function createCoalescer(options: CoalescerOptions = {}): Coalescer {
       }
 
       const mc = new MulticastStream<T>(lazySource(fn), {
-        onAbort: () => streamAdapter.release(key),
-        onSettle: () => streamAdapter.release(key),
+        onAbort: () => streamAdapter.release(key, entry),
+        onSettle: () => streamAdapter.release(key, entry),
       });
 
-      streamAdapter.register(key, {
+      const entry: StreamRegistryEntry = {
         protocolVersion: PROTOCOL_VERSION,
         subscribe: () => mc.subscribe() as AsyncIterableIterator<unknown>,
-      });
+      };
+      streamAdapter.register(key, entry);
 
       return mc.subscribe();
     },
