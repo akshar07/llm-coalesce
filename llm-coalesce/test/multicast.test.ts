@@ -152,3 +152,62 @@ describe("MulticastStream", () => {
     expect(mc.isDone).toBe(true);
   });
 });
+
+
+describe.each(["return", "throw"] as const)("subscriber %s()", (method) => {
+  async function close(sub: AsyncIterableIterator<number>) {
+    if (method === "return") await sub.return!();
+    else await expect(sub.throw!(new Error("subscriber closed"))).rejects.toThrow("subscriber closed");
+  }
+
+  it("discards unread buffered chunks without affecting another subscriber", async () => {
+    const source = new ControllableSource<number>();
+    const mc = new MulticastStream(source);
+    const closed = mc.subscribe();
+    const remaining = mc.subscribe();
+    source.push(1);
+    source.push(2);
+    expect(await remaining.next()).toEqual({ value: 1, done: false });
+    expect(await remaining.next()).toEqual({ value: 2, done: false });
+    await close(closed);
+    expect(await closed.next()).toEqual({ value: undefined, done: true });
+    source.push(3);
+    source.finish();
+    expect(await drain(remaining)).toEqual([3]);
+    expect(await closed.next()).toEqual({ value: undefined, done: true });
+    expect(mc.subscriberCount).toBe(0);
+  });
+
+  it.each([false, true])("settles pending reads even when the source stays silent (other subscriber: %s)", async (withOther) => {
+    const source = new ControllableSource<number>();
+    const onAbort = vi.fn();
+    const mc = new MulticastStream(source, { onAbort });
+    const closed = mc.subscribe();
+    const remaining = withOther ? mc.subscribe() : undefined;
+    const pending = [closed.next(), closed.next()];
+    await close(closed);
+    // No source events occur before these pending reads must settle.
+    expect(await Promise.all(pending)).toEqual([
+      { value: undefined, done: true }, { value: undefined, done: true },
+    ]);
+    await close(closed);
+    expect(mc.subscriberCount).toBe(withOther ? 1 : 0);
+    expect(onAbort).toHaveBeenCalledTimes(withOther ? 0 : 1);
+    source.push(7);
+    source.finish();
+    if (remaining) expect(await drain(remaining)).toEqual([7]);
+    expect(await closed.next()).toEqual({ value: undefined, done: true });
+  }, 1000);
+
+  it("does not deliver a later upstream error to a closed subscriber", async () => {
+    const source = new ControllableSource<number>();
+    const mc = new MulticastStream(source);
+    const closed = mc.subscribe();
+    const remaining = mc.subscribe();
+    await close(closed);
+    source.fail(new Error("upstream failed"));
+    await expect(remaining.next()).rejects.toThrow("upstream failed");
+    expect(await closed.next()).toEqual({ value: undefined, done: true });
+    expect(await remaining.next()).toEqual({ value: undefined, done: true });
+  });
+});

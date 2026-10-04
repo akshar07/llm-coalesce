@@ -115,7 +115,8 @@ export class MulticastStream<T> {
   /**
    * Attach a new subscriber. Starts the underlying source on first call.
    * The returned iterator replays any already-buffered chunks before
-   * switching to live delivery.
+   * switching to live delivery. Calling return() or throw() closes only this
+   * subscriber; pending and future reads then finish without more chunks.
    */
   subscribe(): AsyncIterableIterator<T> {
     this.ensureStarted();
@@ -128,6 +129,9 @@ export class MulticastStream<T> {
       if (!active) return;
       active = false;
       this.refCount--;
+      // A closed subscriber may be awaiting a source that never emits again.
+      // Wake readers so they recheck their own active state.
+      this.wake();
       if (this.refCount === 0 && !this.done) {
         this.opts.onAbort?.();
         void this.sourceIterator?.return?.();
@@ -141,6 +145,9 @@ export class MulticastStream<T> {
 
       next: async (): Promise<IteratorResult<T>> => {
         while (true) {
+          if (!active) {
+            return { value: undefined as unknown as T, done: true };
+          }
           if (index < this.buffer.length) {
             const value = this.buffer[index] as T;
             index++;
