@@ -20,10 +20,8 @@ export interface CoalescerOptions {
    * on the same page. */
   streamAdapter?: StreamAdapter;
   /**
-   * Turns a non-string request into a cache key. Defaults to a canonical serialization
-   * of the whole object (order-independent, so `{a,b}` and `{b,a}` collide
-   * on purpose — but `{maxTokens:500}` and `{maxTokens:800}` do NOT, by
-   * design; see src/key.ts).
+   * Convert an object request to a key. Defaults to canonical serialization,
+   * ignoring object field order while preserving parameter differences.
    */
   keyFn?: (request: Record<string, unknown>) => string;
 }
@@ -57,22 +55,7 @@ function resolveKey(
   return typeof request === "string" ? `string:${request}` : `object:${keyFn(request)}`;
 }
 
-/**
- * Wraps a thunk in an AsyncIterable that only calls the thunk once its
- * `Symbol.asyncIterator` is actually invoked (by MulticastStream's first
- * `subscribe()`), and only ever calls it once no matter how many times
- * iteration is attempted.
- *
- * This is what makes the registration-before-fetch ordering below work:
- * `coalescer.stream()` can synchronously register a registry entry and
- * call `mc.subscribe()` *before* the provider thunk has actually run,
- * because the thunk doesn't run until that first subscribe reaches into
- * the pump loop. Without this, `await fn()` would have to happen before
- * registration, and N callers arriving in the same tick (the exact
- * scenario this library exists for) would all race past the empty
- * registry and all invoke the thunk — the thundering-herd bug this
- * package is supposed to prevent.
- */
+/** Delay provider creation until the first read so registration happens first. */
 function lazySource<T>(
   fn: () => AsyncIterable<T> | ReadableStream<T> | Promise<AsyncIterable<T> | ReadableStream<T>>,
 ): AsyncIterable<T> {
@@ -120,8 +103,7 @@ export function createCoalescer(options: CoalescerOptions = {}): Coalescer {
       return p;
     },
 
-    // Deliberately NOT using `await` before the register-and-subscribe
-    // step — see lazySource()'s doc comment for why that ordering matters.
+    // Register before starting the provider to prevent concurrent duplicate calls.
     async stream<T>(
       request: Request,
       fn: () => AsyncIterable<T> | ReadableStream<T> | Promise<AsyncIterable<T> | ReadableStream<T>>,

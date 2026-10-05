@@ -30,20 +30,8 @@ export interface MulticastOptions {
 }
 
 /**
- * Wraps a single AsyncIterable in a hot, replay-buffered broadcaster.
- *
- * The source is consumed at most once, lazily, on the first `subscribe()`.
- * A subscriber that joins after the stream started receives every buffered
- * chunk first, in order, then switches to live chunks as they arrive — the
- * upstream call never fires twice no matter how many subscribers attach.
- *
- * Each subscriber tracks its own read cursor into the buffer, so a slow
- * reader never blocks a fast one (no shared read pointer).
- *
- * v0.1 buffers the full stream in memory with no eviction — correct for
- * request/response-shaped completions, but not yet bounded for very
- * long-lived streams (e.g. a runaway agent loop). Buffer bounding is a
- * planned v0.2 addition; see the roadmap in README.md.
+ * Broadcast one source with full replay for late subscribers and independent
+ * read cursors. Starts on first subscribe(); the replay buffer is unbounded.
  */
 export class MulticastStream<T> {
   private readonly buffer: T[] = [];
@@ -90,7 +78,6 @@ export class MulticastStream<T> {
 
   private async pump(): Promise<void> {
     try {
-      // sourceIterator is always set before pump() is invoked (ensureStarted)
       const iterator = this.sourceIterator!;
       while (true) {
         const result = await iterator.next();

@@ -1,17 +1,12 @@
 import { PROTOCOL_VERSION } from "./protocol.js";
 
-// ---------------------------------------------------------------------------
-// run() adapters — coalescing plain Promise-returning calls
-// ---------------------------------------------------------------------------
-
 export interface RunAdapter {
   get(key: string): Promise<unknown> | undefined;
   set(key: string, promise: Promise<unknown>): void;
   delete(key: string): void;
 }
 
-/** In-process Promise registry. Default for `run()`; fine for Node/SSR and
- * for browser use within a single bundle. */
+/** Create an isolated in-process registry for run() calls. */
 export function memoryRunAdapter(): RunAdapter {
   const map = new Map<string, Promise<unknown>>();
   return {
@@ -24,11 +19,6 @@ export function memoryRunAdapter(): RunAdapter {
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// stream() adapters — coalescing streaming calls across possibly-separate
-// module instances (the micro-frontend case)
-// ---------------------------------------------------------------------------
 
 export interface StreamRegistryEntry {
   protocolVersion: string;
@@ -43,8 +33,7 @@ export interface StreamAdapter {
   release(key: string, expectedEntry: StreamRegistryEntry): void;
 }
 
-/** In-process registry. Default for Node/SSR/tests, and for browser use
- * within a single bundle where a plain module-scope Map already works. */
+/** Create an isolated in-process stream registry. Share this adapter to share streams. */
 export function memoryAdapter(): StreamAdapter {
   const map = new Map<string, StreamRegistryEntry>();
   return {
@@ -65,25 +54,9 @@ interface RegistryHost {
 }
 
 /**
- * Coordinates across independently bundled widgets that share the same
- * `window` (or other global object) but each import their own copy of this
- * library. A plain module-scope Map can't do this — every bundle has its
- * own copy of the module. A well-known global object can, because multiple
- * bundles in the same JS realm already share `window` by reference.
- *
- * Registry entries are plain objects (a `subscribe` function), never class
- * instances — two bundles have two different copies of the MulticastStream
- * class, so an `instanceof` check across them would fail even for
- * functionally identical code. Duck-typed function bags sidestep that.
- *
- * Version safety: every entry is stamped with PROTOCOL_VERSION. If a widget
- * on an older or newer version of this library encounters an entry it
- * doesn't recognize, `acquire` returns `undefined` — the safe default is to
- * NOT coalesce (duplicate the call) rather than risk two incompatible
- * versions reading or writing shared state. See docs/adr/0001.
- *
- * Not a substitute for cross-tab or cross-iframe coordination — that needs
- * a `BroadcastChannel`-based adapter (planned for v0.3; see README roadmap).
+ * Share streams across bundles using the same global object. Entries use plain
+ * objects so consumers do not depend on cross-bundle class identity.
+ * Incompatible protocol versions do not coalesce. Cross-tab sharing is unsupported.
  */
 export function windowAdapter(
   target: RegistryHost = (typeof window !== "undefined"
