@@ -5,6 +5,12 @@ same key. Late stream subscribers receive buffered chunks, then live chunks.
 The library accepts provider-supplied async iterables and readable streams;
 it has no runtime dependencies.
 
+## Installation
+
+```sh
+npm install llm-coalesce
+```
+
 ## Local setup
 
 From this repository's root:
@@ -82,6 +88,69 @@ share `run()` calls, coordinate browser tabs, or coordinate separate processes.
 Additional exports: `MulticastStream`, `memoryAdapter`, `memoryRunAdapter`,
 `windowAdapter`, `stableStringify`, `stableHash`, `toAsyncIterable`, and
 `PROTOCOL_VERSION`, plus their public types.
+
+## React
+
+React 18 and 19 apps can use the optional `llm-coalesce/react` entry point.
+The core entry point does not import React. Install React in your application.
+
+```tsx
+import { createCoalescer } from "llm-coalesce";
+import { useLlmStream, type StreamFetcher } from "llm-coalesce/react";
+
+// Share this instance between widgets in this client application.
+const coalescer = createCoalescer();
+
+function Summary({ requestKey, generate }: {
+  requestKey: string;
+  generate: StreamFetcher;
+}) {
+  const { text, status, error } = useLlmStream(requestKey, generate, { coalescer });
+  if (status === "error") return <p role="alert">{String(error)}</p>;
+  return <p aria-busy={status !== "done"}>{text || "Loading…"}</p>;
+}
+```
+
+`useLlmStream(key, fetcher, { coalescer })` accepts a string key and a factory
+returning an `AsyncIterable<string>` or `ReadableStream<string>`, directly or
+through a promise. It returns accumulated `text`, `status` (`loading`,
+`streaming`, `done`, or `error`), and `error`. Map structured provider events
+to text chunks before returning the stream.
+
+Changing the key or coalescer closes the previous subscription and starts a
+new one. Inline fetcher functions and options objects do not restart it; the
+latest committed fetcher is used on the next subscription. Put every input
+that affects the response in the key. Keep the coalescer instance stable.
+Unmounting closes only that component's subscription; other readers continue.
+
+To observe subscription `return()` failures, supply `onCleanupError`:
+
+```ts
+useLlmStream(requestKey, generate, {
+  coalescer,
+  onCleanupError: (error) => console.error("Stream cleanup failed", error),
+});
+```
+
+Cleanup errors do not replace the stream's text, status, or error state. The
+callback can run after unmount, so use it for logging rather than component
+state updates. Updating the callback does not restart the subscription; cleanup
+uses the latest committed callback. Without a callback, failures are logged to
+`console.error`. If the callback throws or rejects, that failure and the original
+cleanup error are logged without leaving an unhandled rejection.
+
+React Strict Mode can replay effect setup and cleanup in development, so do
+not assume exactly one provider start across separate subscription lifetimes.
+
+The hook starts work in an effect, not during server rendering. In frameworks
+with server components, use it from a client component. Scope the coalescer to
+your client application or provider; do not share tenant-specific work through
+a process-global server instance. Use a coalescer configured with
+`windowAdapter()` for independently bundled widgets on the same page.
+
+The retired `use-llm-stream/react` hook is replaced by this entry point. Migration
+requires supplying a shared coalescer; there is no implicit global registry or
+built-in SSE parser.
 
 ## Request keys
 
