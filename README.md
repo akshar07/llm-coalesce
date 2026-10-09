@@ -2,7 +2,7 @@
 
 Share one in-flight LLM request and its live token stream across concurrent callers. The provider-agnostic TypeScript library accepts an `AsyncIterable` or `ReadableStream`, so callers can supply their own LLM SDK or transport.
 
-This repository includes the library, a runnable browser demo, and the earlier implementation preserved for reference.
+This repository includes the library and a runnable browser demo.
 
 ## Projects
 
@@ -10,7 +10,6 @@ This repository includes the library, a runnable browser demo, and the earlier i
 | --- | --- |
 | [llm-coalesce](llm-coalesce/) | Active library: request coalescing, stream multicasting, and registry adapters. |
 | [llm-coalesce-demo](llm-coalesce-demo/) | Express server and browser demos comparing independent requests with a shared stream. |
-| [use-llm-stream](use-llm-stream/) | Superseded implementation and historical tutorials; not required by the demo. |
 
 ## Run the demo
 
@@ -65,14 +64,18 @@ npm run test:browser
 
 The integration tests exercise the real server. The browser check verifies that three separate module graphs produce three requests with isolated registries and one request with a shared window registry.
 
+## React compatibility
+
+`llm-coalesce` works with React and other frameworks. React apps can import the optional `useLlmStream` hook from `llm-coalesce/react` to receive text, status, and errors with subscription cleanup handled automatically. Pass a stable shared coalescer to coordinate components. The core entry point does not import React. See the [React usage guide](llm-coalesce/README.md#react).
+
 ## Scope
 
 Requests coalesce only when they share a registry and an exact request key while work is in flight. Include all inputs that affect the response in that key. The window adapter coordinates widgets within one browser tab; cross-tab and distributed coordination are not implemented in this version.
 
 ## Further reading
 
-The [demo README](llm-coalesce-demo/README.md#tutorials-in-the-order-this-project-actually-evolved) lists the tutorials in their intended chronological order. The [earlier implementation](use-llm-stream/README.md) is retained as historical context.
+The [demo README](llm-coalesce-demo/README.md#tutorials-in-the-order-this-project-actually-evolved) lists the tutorials in their intended chronological order. The superseded `use-llm-stream` package has been removed; its source remains available in Git history. Historical tutorials describe earlier versions, not the current API.
 
 ## License
 
-The two library packages include MIT licenses: [llm-coalesce](llm-coalesce/LICENSE) and [use-llm-stream](use-llm-stream/LICENSE). The demo also declares MIT in its package metadata.
+The library is licensed under [MIT](llm-coalesce/LICENSE). The demo also declares MIT in its package metadata.
