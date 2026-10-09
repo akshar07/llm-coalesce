@@ -122,6 +122,23 @@ new one. Inline fetcher functions and options objects do not restart it; the
 latest committed fetcher is used on the next subscription. Put every input
 that affects the response in the key. Keep the coalescer instance stable.
 Unmounting closes only that component's subscription; other readers continue.
+
+To observe subscription `return()` failures, supply `onCleanupError`:
+
+```ts
+useLlmStream(requestKey, generate, {
+  coalescer,
+  onCleanupError: (error) => console.error("Stream cleanup failed", error),
+});
+```
+
+Cleanup errors do not replace the stream's text, status, or error state. The
+callback can run after unmount, so use it for logging rather than component
+state updates. Updating the callback does not restart the subscription; cleanup
+uses the latest committed callback. Without a callback, failures are logged to
+`console.error`. If the callback throws or rejects, that failure and the original
+cleanup error are logged without leaving an unhandled rejection.
+
 React Strict Mode can replay effect setup and cleanup in development, so do
 not assume exactly one provider start across separate subscription lifetimes.
 

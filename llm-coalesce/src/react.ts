@@ -12,6 +12,8 @@ export type StreamFetcher = () =>
 export interface UseLlmStreamOptions {
   /** Reuse the same instance across components that should share requests. */
   coalescer: Coalescer;
+  /** Observe subscription cleanup failures, including after unmount. Defaults to console.error. */
+  onCleanupError?: (error: unknown) => void | Promise<void>;
 }
 
 export interface UseLlmStreamResult {
@@ -25,12 +27,14 @@ export interface UseLlmStreamResult {
 export function useLlmStream(
   key: string,
   fetcher: StreamFetcher,
-  { coalescer }: UseLlmStreamOptions,
+  { coalescer, onCleanupError }: UseLlmStreamOptions,
 ): UseLlmStreamResult {
   const [state, setState] = useState<UseLlmStreamResult>({
     text: "", status: "loading", error: undefined,
   });
   const fetcherRef = useRef(fetcher);
+  const cleanupErrorRef = useRef(onCleanupError);
+  useEffect(() => { cleanupErrorRef.current = onCleanupError; }, [onCleanupError]);
   // Commit the factory before subscribing, without restarting for inline closures.
   useEffect(() => { fetcherRef.current = fetcher; }, [fetcher]);
 
@@ -47,8 +51,18 @@ export function useLlmStream(
       returned = true;
       try {
         await subscription.return?.();
-      } catch {
-        // Cleanup must not create an unhandled rejection after unmount.
+      } catch (error) {
+        const report = cleanupErrorRef.current;
+        if (!report) {
+          console.error("llm-coalesce: subscription cleanup failed", error);
+          return;
+        }
+        try {
+          await report(error);
+        } catch (reportError) {
+          // A failing observer must not turn detached cleanup into a rejected promise.
+          console.error("llm-coalesce: onCleanupError failed", reportError, "Cleanup error:", error);
+        }
       }
     };
 

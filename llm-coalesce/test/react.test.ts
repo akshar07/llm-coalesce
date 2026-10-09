@@ -161,6 +161,66 @@ describe("useLlmStream", () => {
     expect(old.return).toHaveBeenCalledTimes(1);
   });
 
+  it("reports cleanup once to the latest callback without restarting or changing state", async () => {
+    const source = controlled();
+    const error = new Error("return failed");
+    source.iterator.return = vi.fn().mockRejectedValue(error);
+    const coalescer: Coalescer = { ...createCoalescer(), stream: vi.fn().mockResolvedValue(source.iterator) };
+    const first = vi.fn();
+    const latest = vi.fn();
+    const hook = renderHook(({ onCleanupError }) => useLlmStream("key", () => source.iterator, { coalescer, onCleanupError }), {
+      initialProps: { onCleanupError: first },
+    });
+    await waitFor(() => expect(source.iterator.next).toHaveBeenCalled());
+    await source.send("partial");
+    hook.rerender({ onCleanupError: latest });
+    expect(coalescer.stream).toHaveBeenCalledTimes(1);
+    const state = hook.result.current;
+    hook.unmount();
+    await waitFor(() => expect(latest).toHaveBeenCalledWith(error));
+    await source.end();
+    expect(latest).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+    expect(hook.result.current).toBe(state);
+  });
+
+  it("logs cleanup failures by default even for a subscription arriving after unmount", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const pending = deferred<AsyncIterableIterator<string>>();
+      const error = new Error("late cleanup failed");
+      const source = controlled();
+      source.iterator.return = vi.fn(() => { throw error; });
+      const coalescer: Coalescer = { ...createCoalescer(), stream: vi.fn().mockReturnValue(pending.promise) };
+      const hook = renderHook(() => useLlmStream("key", () => source.iterator, { coalescer }));
+      hook.unmount();
+      await act(async () => { pending.resolve(source.iterator); });
+      expect(log).toHaveBeenCalledWith("llm-coalesce: subscription cleanup failed", error);
+      expect(source.iterator.next).not.toHaveBeenCalled();
+    } finally { log.mockRestore(); }
+  });
+
+  it.each(["throw", "reject"])("contains a cleanup callback that does %s", async (mode) => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const error = new Error("cleanup failed");
+      const observerError = new Error("observer failed");
+      const source = controlled();
+      source.iterator.return = vi.fn().mockRejectedValue(error);
+      const coalescer: Coalescer = { ...createCoalescer(), stream: vi.fn().mockResolvedValue(source.iterator) };
+      const onCleanupError = vi.fn(() => {
+        if (mode === "throw") throw observerError;
+        return Promise.reject(observerError);
+      });
+      const hook = renderHook(() => useLlmStream("key", () => source.iterator, { coalescer, onCleanupError }));
+      await waitFor(() => expect(source.iterator.next).toHaveBeenCalled());
+      hook.unmount();
+      await waitFor(() => expect(log).toHaveBeenCalledWith("llm-coalesce: onCleanupError failed", observerError, "Cleanup error:", error));
+      await source.end();
+      expect(onCleanupError).toHaveBeenCalledTimes(1);
+    } finally { log.mockRestore(); }
+  });
+
   it("balances subscriptions under Strict Mode effect replay", async () => {
     const sources: ReturnType<typeof controlled>[] = [];
     const coalescer: Coalescer = { ...createCoalescer(), stream: vi.fn(() => {
