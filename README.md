@@ -10,9 +10,11 @@ Try the [live widget demo](https://llm-coalesce-demo.vercel.app/) or the [microf
 
 **Ask once. Stream together.** Watch the 40-second explainer:
 
-[![Watch the llm-coalesce explainer](docs/media/llm-coalesce-explainer.jpg)](https://github.com/akshar07/llm-coalesce/raw/refs/heads/main/docs/media/llm-coalesce-explainer.mp4)
 
-[Watch or download the video](https://github.com/akshar07/llm-coalesce/raw/refs/heads/main/docs/media/llm-coalesce-explainer.mp4).
+
+https://github.com/user-attachments/assets/07c45a38-5c43-46c0-adbd-0b9d59be6786
+
+
 
 ## Projects
 
