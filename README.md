@@ -4,6 +4,16 @@ Share one in-flight LLM request and its live token stream across concurrent call
 
 This repository includes the library and a runnable browser demo.
 
+## Demo and video
+
+Try the [live widget demo](https://llm-coalesce-demo.vercel.app/) or the [microfrontends demo](https://llm-coalesce-demo.vercel.app/microfrontends). No API key is required.
+
+**Ask once. Stream together.** Watch the 40-second explainer:
+
+[![Watch the llm-coalesce explainer](docs/media/llm-coalesce-explainer.jpg)](https://github.com/akshar07/llm-coalesce/raw/refs/heads/main/docs/media/llm-coalesce-explainer.mp4)
+
+[Watch or download the video](https://github.com/akshar07/llm-coalesce/raw/refs/heads/main/docs/media/llm-coalesce-explainer.mp4).
+
 ## Projects
 
 | Directory | Purpose |
@@ -21,7 +31,7 @@ npm ci
 npm start
 ```
 
-Open [the widget demo](http://localhost:3000) or [the microfrontends demo](http://localhost:3000/microfrontends). The default provider streams mock text, so no API key is required. The displayed request counts come from the server.
+For local development, open `http://localhost:3000` or `http://localhost:3000/microfrontends`. The default provider streams mock text, so no API key is required.
 
 The demo installs the committed `vendor-packages/llm-coalesce-0.1.0.tgz` archive. You do not need to build the sibling library or download it from the npm registry.
 
