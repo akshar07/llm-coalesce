@@ -74,11 +74,11 @@ h1,h2,h3{
 }
 code,.mono{font-family:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;}
 
-.page{max-width:1180px; margin:0 auto; padding:40px 22px 80px;}
+.page{max-width:1180px; margin:0 auto; padding:24px 22px 80px;}
 
 header.masthead{
   display:flex; flex-direction:column; gap:10px;
-  padding-bottom:24px; margin-bottom:24px; border-bottom:1px solid var(--line);
+  padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid var(--line);
 }
 .eyebrow{
   font-family:"JetBrains Mono", monospace; font-size:12px; letter-spacing:.08em;
@@ -90,7 +90,7 @@ header.masthead{
   background:var(--code-bg); color:var(--muted); text-transform:none; letter-spacing:0;
 }
 h1{font-size:clamp(26px,3.6vw,36px); line-height:1.1;}
-.tagline{font-size:16px; color:var(--ink-soft); max-width:720px;}
+.tagline{margin:0; font-size:18px; color:var(--ink-soft); max-width:720px;}
 
 /* controls */
 .controls{
@@ -188,3 +188,20 @@ footer.note{
   padding-top:16px;
 }
 footer.note code{background:var(--code-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--line);}
+
+.demo-links{display:flex; flex-wrap:wrap; gap:18px; font-size:14px;}
+a{color:var(--signal-ink); text-underline-offset:3px;}
+footer.note{color:var(--ink-soft); font-size:15px;}
+footer.note h2{font-size:20px;}
+footer.note p{max-width:850px;}
+footer.note details{margin-top:16px;}
+footer.note summary{cursor:pointer; color:var(--signal-ink); font-weight:600;}
+@media (max-width:600px){
+  .page{padding:20px 16px 48px;}
+  .eyebrow{flex-wrap:wrap; font-size:11px; letter-spacing:.03em;}
+  .tagline{font-size:17px;}
+  .controls{gap:12px; padding:12px;}
+  .controls .spacer{display:none;}
+  .controls .btn-primary{font-size:16px; padding:11px 18px;}
+  .system-head{flex-direction:column; gap:4px;}
+}

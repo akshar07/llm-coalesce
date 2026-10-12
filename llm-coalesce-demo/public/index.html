@@ -12,12 +12,14 @@
 <div class="page">
 
   <header class="masthead">
-    <div class="eyebrow"><span class="dot"></span>llm-coalesce · step 1 demo<span class="provider-badge" id="providerBadge">checking provider…</span></div>
+    <div class="eyebrow"><span class="dot"></span>llm-coalesce · widget demo<span class="provider-badge" id="providerBadge">checking provider…</span></div>
     <h1>One call, many widgets</h1>
-    <p class="tagline">Every widget below wants the same answer at the same moment. The Node server behind this page is deliberately dumb — it has no idea what coalescing is; every request it receives triggers a real provider call. The coalescing happens entirely in this page's JavaScript, imported from the real <code class="mono">llm-coalesce</code> npm package (not a copy of it): on the left, each widget calls this demo's own <code class="mono">createSSEStream()</code> helper on its own; on the right, widgets go through the package's <code class="mono">coalescer.stream()</code>, and only the first one actually reaches the server. <code class="mono">llm-coalesce</code> itself never parses SSE or talks to any provider — it only ever sees a plain async stream, supplied by the caller. Watch the provider-call counters — they're the server's own count of requests it received.</p>
+    <p class="tagline">Same question, multiple widgets. Run the comparison to see separate requests become one shared live stream.</p>
+    <nav class="demo-links" aria-label="Demo resources"><a href="https://github.com/akshar07/llm-coalesce">GitHub</a><a href="/microfrontends">Microfrontends demo</a></nav>
   </header>
 
   <div class="controls">
+    <button class="btn btn-primary" id="runBtn">▶ Run demo</button>
     <div class="control-group">
       <span class="control-label">WIDGETS</span>
       <div class="segmented" id="widgetCountControl">
@@ -31,7 +33,6 @@
     </div>
     <div class="spacer"></div>
     <button class="btn btn-ghost" id="resetBtn">Reset</button>
-    <button class="btn btn-primary" id="runBtn">▶ Run demo</button>
   </div>
 
   <div class="stage">
@@ -69,9 +70,14 @@
   </div>
 
   <footer class="note">
-    Turn on <strong>stagger</strong> to mount widgets 0ms / 600ms / 1300ms apart — on the right, a widget joining mid-stream replays the buffered tokens instantly from the browser's own buffer, then continues live, without a second request ever reaching the server. The "mount one more widget after the stream finishes" button is left in deliberately: llm-coalesce's registry only shares requests that overlap in time, so a widget arriving after completion makes a fresh call on <em>both</em> sides — that's a scoped-out feature (a post-completion TTL cache), not a bug; see the package's own "Non-goals" and ADR 0003. Set <code>ANTHROPIC_API_KEY</code> in the server's environment to swap the mock for a real streaming completion — see the README. That choice is independent of everything above: coalescing decides <em>how many</em> requests get sent, not what answers them.
-    <br><br>
-    Everything above runs in <em>one</em> script, one module graph — the coalescing was never in question across a bundle boundary. See <a href="/microfrontends">the microfrontends demo →</a> for the harder case: three genuinely separate module graphs, coordinated only through <code>windowAdapter()</code>.
+    <h2>How sharing works</h2>
+    <p>Matching requests share a registry while they are in flight. Turn on stagger to see late subscribers replay buffered chunks before joining the live stream. After completion, a new widget starts a fresh request.</p>
+    <details>
+      <summary>Implementation and provider details</summary>
+      <p>The browser loads the installed <code>llm-coalesce</code> package. Without coalescing, each widget opens its own SSE stream. With coalescing, <code>coalescer.stream()</code> invokes the stream factory once for the matching key and shares the result.</p>
+      <p>The server performs no request coalescing. The demo parses SSE in <code>createSSEStream()</code>; the library receives a plain async iterable and stays independent of the provider and transport.</p>
+      <p>The default mock needs no API key. For a real Anthropic completion, configure <code>ANTHROPIC_API_KEY</code> on the server as described in the repository. This comparison shares requests within one module graph; the <a href="/microfrontends">microfrontends demo</a> shows coordination across separate module graphs.</p>
+    </details>
   </footer>
 
 </div>

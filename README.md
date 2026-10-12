@@ -1,8 +1,20 @@
 # llm-coalesce
 
-Share one in-flight LLM request and its live token stream across concurrent callers. The provider-agnostic TypeScript library accepts an `AsyncIterable` or `ReadableStream`, so callers can supply their own LLM SDK or transport.
+**Ask once. Stream together.** Share one in-flight LLM request and its live response across concurrent consumers.
 
-This repository includes the library and a runnable browser demo.
+## Why this exists
+
+A summary panel, an insights widget, and a sidebar can independently request the same answer. If those requests overlap, they can duplicate upstream work. `llm-coalesce` lets consumers with the same key and a shared registry subscribe to one live stream, including replay for late arrivals.
+
+It is useful when widgets have separate lifecycles or ship as independent bundles. Bring your own LLM provider: the TypeScript core accepts an `AsyncIterable` or `ReadableStream`. Sharing lasts while work is in flight; completed responses are not cached.
+
+## Install
+
+```sh
+npm install llm-coalesce
+```
+
+Use the [core API](llm-coalesce/README.md#usage) or the optional [React hook](llm-coalesce/README.md#react). For independently bundled widgets on one page, see the [shared window adapter](llm-coalesce/README.md#api).
 
 ## Demo and video
 
@@ -10,18 +22,7 @@ Try the [live widget demo](https://llm-coalesce-demo.vercel.app/) or the [microf
 
 **Ask once. Stream together.** Watch the 40-second explainer:
 
-
-
 https://github.com/user-attachments/assets/07c45a38-5c43-46c0-adbd-0b9d59be6786
-
-
-
-## Projects
-
-| Directory | Purpose |
-| --- | --- |
-| [llm-coalesce](llm-coalesce/) | Active library: request coalescing, stream multicasting, and registry adapters. |
-| [llm-coalesce-demo](llm-coalesce-demo/) | Express server and browser demos comparing independent requests with a shared stream. |
 
 ## Run the demo
 
@@ -83,6 +84,13 @@ The integration tests exercise the real server. The browser check verifies that 
 ## Scope
 
 Requests coalesce only when they share a registry and an exact request key while work is in flight. Include all inputs that affect the response in that key. The window adapter coordinates widgets within one browser tab; cross-tab and distributed coordination are not implemented in this version.
+
+## Repository layout
+
+| Directory | Purpose |
+| --- | --- |
+| [llm-coalesce](llm-coalesce/) | Active library: request coalescing, stream multicasting, and registry adapters. |
+| [llm-coalesce-demo](llm-coalesce-demo/) | Express server and browser demos comparing independent requests with a shared stream. |
 
 ## Further reading
 
